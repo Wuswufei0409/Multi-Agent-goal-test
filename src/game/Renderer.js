@@ -22,6 +22,10 @@ export class Renderer {
     this.ctx = canvas.getContext('2d');
     this.background = background;
     this.player = player;
+    /** 场上子弹（由 main.js 注入与 GameLoop 共享，保证唯一实例）。 */
+    this.bullets = [];
+    /** 场上敌机（由 main.js 注入与 GameLoop 共享）。 */
+    this.enemies = [];
     this.resize();
 
     // 画布尺寸随窗口变化自适应，并同步星空边界。
@@ -76,6 +80,12 @@ export class Renderer {
       }
     }
 
+    // 敌机与子弹（阶段 3）：仅游玩阶段绘制，结算/就绪不残留。
+    if (gameState.phase === GamePhase.PLAYING) {
+      for (const e of this.enemies) e.draw(ctx);
+      for (const b of this.bullets) this.drawBullet(ctx, b);
+    }
+
     // 状态机阶段界面。
     this.drawPhaseUI(gameState);
 
@@ -112,10 +122,15 @@ export class Renderer {
       for (let i = 0; i < gameState.lives; i++) lives += '♥ ';
       ctx.fillText(`生命 ${lives || '-'}`, 16, 44);
 
+      ctx.textAlign = 'right';
+      ctx.font = `${Math.max(12, Math.floor(this.width / 70))}px sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(`波次 ${gameState.wave} · 敌机 ${this.enemies.length}`, this.width - 16, 14);
+
       ctx.textAlign = 'center';
       ctx.font = `${Math.max(12, Math.floor(this.width / 70))}px sans-serif`;
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.fillText(`方向键/WASD 移动 · 按住鼠标/触屏拖拽跟随`, this.width / 2, this.height * 0.08);
+      ctx.fillText(`方向键/WASD 或 拖拽移动 · 自动射击`, this.width / 2, this.height * 0.08);
     } else if (gameState.phase === GamePhase.GAME_OVER) {
       ctx.fillStyle = '#ff7a7a';
       ctx.font = `bold ${Math.max(32, Math.floor(this.width / 22))}px sans-serif`;
@@ -125,5 +140,22 @@ export class Renderer {
       ctx.fillStyle = '#ffffff';
       ctx.fillText('按 空格 或 点击屏幕 重新开始', cx, this.height * 0.54);
     }
+  }
+
+  /**
+   * drawBullet(ctx, bullet) — 绘制一枚玩家子弹（发光的黄色光柱，便于与敌机区分）。
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {import('./entities/Bullet.js').Bullet} bullet
+   */
+  drawBullet(ctx, bullet) {
+    const halfW = bullet.width / 2;
+    const halfH = bullet.height / 2;
+    ctx.save();
+    ctx.fillStyle = '#ffd54a';
+    ctx.fillRect(bullet.x - halfW, bullet.y - halfH, bullet.width, bullet.height);
+    // 高光芯线：增强视觉区辨。
+    ctx.fillStyle = '#fff7c4';
+    ctx.fillRect(bullet.x - halfW / 2, bullet.y - halfH, halfW, bullet.height);
+    ctx.restore();
   }
 }
