@@ -69,6 +69,8 @@ export class GameLoop {
     this.waveBannerTimer = 0;
     /** 决胜 HUD 提示文本（如“波次 2”）。 */
     this.waveBannerText = '';
+    /** 终检打磨 D2：玩家死亡爆发粒子的保留窗口（s）。非 0 期间 clearField() 保留死亡粒子让其可见并自然淡出。 */
+    this._deathFxTimer = 0;
   }
 
   start() {
@@ -119,6 +121,7 @@ export class GameLoop {
     this.waveManager.reset(this.gameState.wave || 1);
     this.particles.clear();
     this.floatingTexts.length = 0;
+    this._deathFxTimer = 0;
     this.waveBannerTimer = 0;
     this.waveBannerText = '';
   }
@@ -130,7 +133,11 @@ export class GameLoop {
   clearField() {
     this.bullets.length = 0;
     this.enemies.length = 0;
-    this.particles.clear();
+    // 终检打磨 D2：死亡爆发窗口内（_deathFxTimer>0）保留粒子，让其可见后自然淡出；
+    // 其余清场（结算/就绪/新局）仍完整清空粒子，避免残留（保持 clearField 防残留语义与既有单测）。
+    if (this._deathFxTimer <= 0) {
+      this.particles.clear();
+    }
     this.floatingTexts.length = 0;
     this.waveBannerTimer = 0;
     this.waveBannerText = '';
@@ -194,6 +201,11 @@ export class GameLoop {
     } else {
       // 非游玩阶段不响应移动输入（避免 READY/结算状态幽灵移动）。
       this._lastPointerActive = false;
+      // 终检打磨 D2：死亡爆发窗口内推进粒子动画并递减计时，让死亡爆炸可见、自然淡出后被回收。
+      if (this._deathFxTimer > 0) {
+        this._deathFxTimer -= dt;
+        this.particles.update(dt);
+      }
       // 结算/就绪阶段清空场上实体与粒子，避免命尽或重开后残留（阶段 5 统一 clearField）。
       this.clearField();
     }
@@ -272,6 +284,8 @@ export class GameLoop {
             gs.lives = 0;
             gs.gameOver();
             this._onPlayerDeath();
+            // 终检打磨 D1：命尽进入结算时置玩家死亡，结算画面不再绘制“存活”机体。
+            this.player.alive = false;
           }
           break;
         }
@@ -327,6 +341,8 @@ export class GameLoop {
    * _onPlayerDeath() — 玩家死亡的大规模爆炸。
    */
   _onPlayerDeath() {
+    // 终检打磨 D2：开启死亡粒子保留窗口（与死亡爆炸最长寿命一致），避免 clearField() 同帧清掉导致仅闪 1 帧。
+    this._deathFxTimer = 0.9;
     this.particles.burst(this.player.x, this.player.y, {
       count: 42,
       speed: 260,

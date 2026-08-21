@@ -202,5 +202,40 @@ console.log('Renderer — READY→PLAYING HUD 数据读取正确（分数/生命
   assert(threw === null, 'PLAYING HUD 渲染未抛错');
 }
 
+console.log('终检打磨 — D1 命尽进入 GAME_OVER 时 player.alive=false');
+{
+  const loop = makeLoop();
+  const gs = loop.gameState;
+  gs.start();
+  gs.lives = 1;
+  loop.player.alive = true;
+  loop.player.reset(800, 600);
+  loop.player.x = 400; loop.player.y = 300;
+  const e = new Enemy({ speed: 0 });
+  e.x = 400; e.y = 300; e.width = 40; e.height = 40; e.active = true;
+  loop.enemies.push(e);
+  loop.update(0.016);
+  assert(gs.phase === GamePhase.GAME_OVER, '命尽已进入 GAME_OVER');
+  assert(loop.player.alive === false, 'D1: 命尽时 player.alive 置 false（结算不绘制存活机体）');
+}
+
+console.log('终检打磨 — D2 死亡爆发保留可见并自然淡出回收（防仅闪 1 帧）');
+{
+  const loop = makeLoop();
+  const gs = loop.gameState;
+  gs.start();
+  loop.player.x = 400; loop.player.y = 300;
+  loop._onPlayerDeath();
+  assert(loop.particles.particles.length === 42, '死亡爆出 42 粒');
+  assert(loop._deathFxTimer > 0, 'D2: 死亡保留窗口开启');
+  loop.clearField();
+  assert(loop.particles.particles.length > 0, 'D2: clearField 保留死亡粒子（可见）');
+  loop._deathFxTimer = 0;
+  loop.clearField();
+  assert(loop.particles.particles.length === 0, 'D2: 保留窗口结束后再清空（无残留）');
+  loop.resetForNewGame();
+  assert(loop.particles.particles.length === 0 && loop._deathFxTimer === 0, 'D2: 新局 reset 彻底清空并复位保留窗口');
+}
+
 console.log('\n结果:', passed, 'passed,', failed, 'failed');
 process.exit(failed ? 1 : 0);
