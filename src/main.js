@@ -5,14 +5,14 @@ import { Input } from './game/Input.js';
 import { Collision } from './game/Collision.js';
 import { Background } from './game/Background.js';
 
-// 入口：挂载 Canvas 并启动空主循环骨架。
-// 阶段 0 仅建立工程结构与循环骨架，玩法内容在后续阶段填充。
+// 入口：挂载 Canvas，建立单一星空实例并注入 Renderer/GameLoop，启动主循环。
+// 阶段 1：主循环 + 状态机（Ready/Playing/GameOver）+ 滚动星空背景。
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const gameState = new GameState();
 const input = new Input(canvas);
-const background = new Background(canvas);
 const collision = new Collision();
+const background = new Background(renderer.width, renderer.height);
 
 const gameLoop = new GameLoop({ renderer, gameState, input, background, collision });
 gameLoop.start();
