@@ -24,6 +24,10 @@ export class Player {
     this.y = 0;
 
     this.alive = true;
+    /** 受击后的无敌剩余时间（s）——阶段 4 引入，避免一次碰撞瞬间清空多命。 */
+    this.invulnTimer = 0;
+    /** 受击后的无敌时长（s）。 */
+    this.invulnDuration = 1.4;
     this.reset(0, 0);
   }
 
@@ -42,6 +46,27 @@ export class Player {
     this.x = width / 2;
     this.y = height - this.bottomMargin;
     this.alive = true;
+    this.invulnTimer = 0;
+  }
+
+  /**
+   * takeHit() — 玩家受击：进入短时无敌（阶段 4），防止连续碰撞瞬间扣光命数。
+   */
+  takeHit() {
+    this.invulnTimer = this.invulnDuration;
+  }
+
+  /** 是否正处于受击后的无敌期。 */
+  isInvulnerable() {
+    return this.invulnTimer > 0;
+  }
+
+  /**
+   * updateInvuln(dt) — 递减无敌计时（每帧调用）。
+   * @param {number} dt 秒
+   */
+  updateInvuln(dt) {
+    if (this.invulnTimer > 0) this.invulnTimer -= dt;
   }
 
   /**
@@ -99,6 +124,12 @@ export class Player {
    * @param {CanvasRenderingContext2D} ctx
    */
   draw(ctx) {
+    // 阶段 4：无敌期半透明闪烁（受击反馈），不影响位置与碰撞之外表现。
+    const invuln = this.isInvulnerable();
+    if (invuln) {
+      ctx.save();
+      ctx.globalAlpha = 0.3 + 0.4 * Math.abs(Math.sin(performance.now() / 60));
+    }
     const { x, y, width, height } = this;
     const halfW = width / 2;
     const halfH = height / 2;
@@ -147,5 +178,6 @@ export class Player {
     ctx.fill();
 
     ctx.restore();
+    if (invuln) ctx.restore();
   }
 }

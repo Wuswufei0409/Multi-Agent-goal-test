@@ -14,6 +14,8 @@ export class GameState {
     /** @type {GamePhase} 当前游戏阶段 */
     this.phase = GamePhase.READY;
     this.score = 0;
+    /** 历史最高分（阶段 4：超越时更新，新一局不归零）。 */
+    this.highScore = 0;
     this.lives = 3;
     this.wave = 1;
     /** 进入当前阶段后的累计秒数（阶段 1 用于演示/计时）。 */
@@ -61,5 +63,14 @@ export class GameState {
     this.lives = 3;
     this.wave = 1;
     this.phaseTime = 0;
+  }
+
+  /**
+   * addScore(points) — 加分并同步最高分。
+   * @param {number} points 分数增量（正数）
+   */
+  addScore(points) {
+    if (points > 0) this.score += points;
+    if (this.score > this.highScore) this.highScore = this.score;
   }
 }
