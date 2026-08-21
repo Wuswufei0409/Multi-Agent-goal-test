@@ -1,0 +1,15 @@
+{
+  "name": "airplane-shooter",
+  "version": "0.1.0",
+  "description": "网页版飞机大战游戏（纯前端、无音频）",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0"
+  }
+}
