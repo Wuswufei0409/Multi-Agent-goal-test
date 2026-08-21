@@ -12,6 +12,7 @@ import { ParticleSystem } from './game/ParticleSystem.js';
 // 阶段 2：玩家实体与输入（键盘方向键/WASD + 鼠标·触屏拖拽跟随）。
 // 阶段 3：射击（自动）、敌机持续生成与移动、子弹-敌机 / 敌机-玩家碰撞结算、加分与命尽游戏结束。
 // 阶段 4：计分（浮动得分/最高分）、生命（受击无敌）、波次推进与奖励、爆炸粒子。
+// 阶段 5：结算与重开闭环 — 统一 reset 重建（resetForNewGame/clearField）、结算面板+重开按钮、HUD 实时校验。
 const canvas = document.getElementById('game-canvas');
 const renderer = new Renderer(canvas);
 const gameState = new GameState();

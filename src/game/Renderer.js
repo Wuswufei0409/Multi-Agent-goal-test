@@ -152,13 +152,53 @@ export class Renderer {
       ctx.fillStyle = 'rgba(255,255,255,0.6)';
       ctx.fillText(`方向键/WASD 或 拖拽移动 · 自动射击`, this.width / 2, this.height * 0.08);
     } else if (gameState.phase === GamePhase.GAME_OVER) {
-      ctx.fillStyle = '#ff7a7a';
-      ctx.font = `bold ${Math.max(32, Math.floor(this.width / 22))}px sans-serif`;
-      ctx.fillText('游戏结束', cx, this.height * 0.42);
+      // 阶段 5：结算面板 — 居中半透明底 + 标题 + 本局结算数据（最终分数/最高分/到达波次/剩余命）
+      // + 可点击的「重新开始」按钮视觉，配合空格/点击完成 结算→重开 闭环。
+      const panelW = Math.min(this.width * 0.7, 420);
+      const panelH = Math.min(this.height * 0.5, 260);
+      const px = cx - panelW / 2;
+      const py = this.height * 0.2;
 
-      ctx.font = `${Math.max(16, Math.floor(this.width / 42))}px sans-serif`;
+      // 半透明底色卡片。
+      ctx.fillStyle = 'rgba(10,15,30,0.82)';
+      ctx.strokeStyle = 'rgba(124,255,138,0.35)';
+      ctx.lineWidth = 2;
+      this.roundRect(ctx, px, py, panelW, panelH, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      // 标题。
+      ctx.fillStyle = '#ff7a7a';
+      ctx.font = `bold ${Math.max(30, Math.floor(this.width / 24))}px sans-serif`;
+      ctx.fillText('游戏结束', cx, py + 34);
+
+      // 结算数据行。
+      ctx.font = `${Math.max(16, Math.floor(this.width / 46))}px sans-serif`;
+      ctx.fillStyle = '#ffd54a';
+      ctx.fillText(`最终分数 ${gameState.score}`, cx, py + 78);
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.fillText(`最高分 ${gameState.highScore}`, cx, py + 108);
+      ctx.fillStyle = '#7cff8a';
+      ctx.fillText(`到达波次 ${gameState.wave}`, cx, py + 138);
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText(`剩余生命 ${Math.max(0, gameState.lives)}`, cx, py + 166);
+
+      // 「重新开始」按钮（点击/空格）。
+      const btnW = 190;
+      const btnH = 40;
+      const btnX = cx - btnW / 2;
+      const btnY = py + panelH - btnH - 20;
+      ctx.fillStyle = '#3aa0ff';
+      this.roundRect(ctx, btnX, btnY, btnW, btnH, 8);
+      ctx.fill();
       ctx.fillStyle = '#ffffff';
-      ctx.fillText('按 空格 或 点击屏幕 重新开始', cx, this.height * 0.54);
+      ctx.font = `bold ${Math.max(16, Math.floor(this.width / 50))}px sans-serif`;
+      ctx.fillText('重新开始', cx, btnY + btnH / 2);
+
+      // 操作提示（键盘/指针两种方式）。
+      ctx.font = `${Math.max(12, Math.floor(this.width / 70))}px sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillText('按 空格 或 点击屏幕 / 按钮 重新开始', cx, this.height * 0.85);
     }
   }
 
@@ -200,5 +240,25 @@ export class Renderer {
     ctx.shadowBlur = 12;
     ctx.fillText(text, cx, cy);
     ctx.restore();
+  }
+
+  /**
+   * roundRect(ctx, x, y, w, h, r) — 绘制圆角矩形路径（兼容部分环境无原生 ctx.roundRect）。
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} x 左上角 x
+   * @param {number} y 左上角 y
+   * @param {number} w 宽
+   * @param {number} h 高
+   * @param {number} r 圆角半径
+   */
+  roundRect(ctx, x, y, w, h, r) {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
   }
 }
