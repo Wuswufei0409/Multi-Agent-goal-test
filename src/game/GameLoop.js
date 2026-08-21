@@ -4,6 +4,7 @@
  * 输入触发开始/重开（空格或点击），Playing→GameOver 在后续阶段由实体/碰撞接入。
  */
 import { GamePhase } from './GameState.js';
+import { Player } from './entities/Player.js';
 
 export class GameLoop {
   /**
@@ -14,14 +15,19 @@ export class GameLoop {
    * @param {import('./Background.js').Background} deps.background
    * @param {import('./Collision.js').Collision} deps.collision
    */
-  constructor({ renderer, gameState, input, background, collision } = {}) {
+  constructor({ renderer, gameState, input, background, collision, player } = {}) {
     this.renderer = renderer;
     this.gameState = gameState;
     this.input = input;
     this.background = background;
     this.collision = collision;
+    /** 玩家实体（阶段 2 接入移动操控）。若未注入则自行创建并复位。 */
+    this.player = player || new Player();
+    this.player.reset(renderer ? renderer.width : 800, renderer ? renderer.height : 600);
+    this._lastPointerActive = false;
     this._rafId = null;
     this._lastTime = 0;
+    this._prevPhase = gameState ? gameState.phase : GamePhase.READY;
     this.running = false;
   }
 
@@ -63,6 +69,7 @@ export class GameLoop {
 
     // 开始 / 重开触发：空格键按下或一次点击。
     const wantsStart = this.input.isDown('Space') || this.input.consumeClick();
+    const prevPhase = gs.phase;
 
     if (gs.phase === GamePhase.READY && wantsStart) {
       gs.start();
@@ -72,8 +79,33 @@ export class GameLoop {
     }
     // PLAYING → GAME_OVER 由后续阶段的生命/碰撞逻辑调用 gs.gameOver()。
 
-    // 状态机推进（phaseTime 累计）。
+    // 进入 PLAYING（新一局）时把玩家复位到底部中央。
+    if (gs.phase === GamePhase.PLAYING && prevPhase !== GamePhase.PLAYING) {
+      const w = this.renderer ? this.renderer.width : 800;
+      const h = this.renderer ? this.renderer.height : 600;
+      this.player.reset(w, h);
+    }
+    this._prevPhase = gs.phase;
     gs.update(dt);
+
+    // 玩家操控（阶段 2）：仅在游玩阶段生效。
+    if (gs.phase === GamePhase.PLAYING) {
+      const w = this.renderer ? this.renderer.width : 800;
+      const h = this.renderer ? this.renderer.height : 600;
+
+      // 指针拖拽优先：按住鼠标/触屏时目标跟随指针；否则用方向键/WASD。
+      if (this.input.pointerActive) {
+        this.player.follow(this.input.pointerX, this.input.pointerY, w, h, dt);
+      } else {
+        const intent = this.input.getMoveIntent();
+        if (intent.x !== 0 || intent.y !== 0) {
+          this.player.update(dt, intent, w, h);
+        }
+      }
+    } else {
+      // 非游玩阶段不响应移动输入（避免 READY/结算状态幽灵移动）。
+      this._lastPointerActive = false;
+    }
 
     // 星空滚动（READY/PLAYING 下保持动态感）。
     this.background.update(dt);
