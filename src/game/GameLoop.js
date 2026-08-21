@@ -1,13 +1,18 @@
 /**
  * GameLoop — requestAnimationFrame 驱动的 update/render 主循环。
- * 阶段 0：仅建立循环骨架，update 为空实现，render 委托给 Renderer。
- * 后续阶段将在此接入固定步长 accumulator 与游戏逻辑。
+ * 阶段 1：接入固定步长保护（dt 上限）并驱动 状态机 / 滚动星空；
+ * 输入触发开始/重开（空格或点击），Playing→GameOver 在后续阶段由实体/碰撞接入。
  */
+import { GamePhase } from './GameState.js';
+
 export class GameLoop {
   /**
    * @param {object} deps
    * @param {import('./Renderer.js').Renderer} deps.renderer
    * @param {import('./GameState.js').GameState} deps.gameState
+   * @param {import('./Input.js').Input} deps.input
+   * @param {import('./Background.js').Background} deps.background
+   * @param {import('./Collision.js').Collision} deps.collision
    */
   constructor({ renderer, gameState, input, background, collision } = {}) {
     this.renderer = renderer;
@@ -38,6 +43,7 @@ export class GameLoop {
   _tick = (time) => {
     if (!this.running) return;
 
+    // dt 上限 0.1s：切后台/卡顿后避免逻辑跳帧过大。
     const dt = Math.min((time - this._lastTime) / 1000, 0.1);
     this._lastTime = time;
 
@@ -48,12 +54,29 @@ export class GameLoop {
   };
 
   /**
-   * update(dt) — 阶段 1 起实现：输入、实体、碰撞、状态推进。
-   * @param {number} dt 上一帧到本帧的秒数
+   * update(dt) — 每帧推进：输入触发状态迁移 → 状态机计时 → 星空滚动。
+   * 阶段 1 范围：主循环 + 状态机 + 滚动星空；实体/碰撞在阶段 2/3 接入。
+   * @param {number} dt 秒
    */
   update(dt) {
-    // 阶段 0 空实现，占位。
-    void dt;
+    const gs = this.gameState;
+
+    // 开始 / 重开触发：空格键按下或一次点击。
+    const wantsStart = this.input.isDown('Space') || this.input.consumeClick();
+
+    if (gs.phase === GamePhase.READY && wantsStart) {
+      gs.start();
+    } else if (gs.phase === GamePhase.GAME_OVER && wantsStart) {
+      gs.backToReady();
+      gs.start();
+    }
+    // PLAYING → GAME_OVER 由后续阶段的生命/碰撞逻辑调用 gs.gameOver()。
+
+    // 状态机推进（phaseTime 累计）。
+    gs.update(dt);
+
+    // 星空滚动（READY/PLAYING 下保持动态感）。
+    this.background.update(dt);
   }
 
   render(dt) {

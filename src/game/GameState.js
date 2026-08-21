@@ -1,6 +1,7 @@
 /**
  * GameState — 游戏状态机（Ready / Playing / GameOver）。
- * 阶段 0：建立状态枚举与当前态占位；状态切换逻辑在阶段 1 实现。
+ * 阶段 1：实现完整状态机与迁移，供主循环驱动开始/重开。
+ * 生命周期：READY（开始界面）→ PLAYING（游玩）→ GAME_OVER（结算）→ READY（重开）。
  */
 export const GamePhase = Object.freeze({
   READY: 'ready',
@@ -10,26 +11,55 @@ export const GamePhase = Object.freeze({
 
 export class GameState {
   constructor() {
-    /** @type {GamePhase} */
+    /** @type {GamePhase} 当前游戏阶段 */
     this.phase = GamePhase.READY;
     this.score = 0;
     this.lives = 3;
     this.wave = 1;
+    /** 进入当前阶段后的累计秒数（阶段 1 用于演示/计时）。 */
+    this.phaseTime = 0;
   }
 
   /**
-   * transition(next) — 阶段 1 起实现。
-   * @param {GamePhase} _next
+   * transition(next) — 迁移到指定阶段并重置该阶段计时。
+   * @param {GamePhase} next
    */
-  transition(_next) {
-    // 阶段 0 占位。
-    void _next;
+  transition(next) {
+    this.phase = next;
+    this.phaseTime = 0;
   }
 
+  /** Ready → Playing（开始 / 重开）。 */
+  start() {
+    this.reset();
+    this.transition(GamePhase.PLAYING);
+  }
+
+  /** Playing → GameOver。 */
+  gameOver() {
+    if (this.phase === GamePhase.PLAYING) {
+      this.transition(GamePhase.GAME_OVER);
+    }
+  }
+
+  /** 任意阶段 → Ready（重开回到开始界面）。 */
+  backToReady() {
+    this.transition(GamePhase.READY);
+  }
+
+  /**
+   * update(dt) — 推进状态机累计计时。
+   * @param {number} dt 秒
+   */
+  update(dt) {
+    this.phaseTime += dt;
+  }
+
+  /** 重置核心对战数据（不含阶段，阶段由调用方 transition 决定）。 */
   reset() {
-    this.phase = GamePhase.READY;
     this.score = 0;
     this.lives = 3;
     this.wave = 1;
+    this.phaseTime = 0;
   }
 }
