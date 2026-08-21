@@ -26,6 +26,12 @@ export class Renderer {
     this.bullets = [];
     /** 场上敌机（由 main.js 注入与 GameLoop 共享）。 */
     this.enemies = [];
+    /** 粒子系统（由 main.js 注入，阶段 4：爆炸粒子）。 */
+    this.particles = null;
+    /** 浮动得分文字（由 main.js 注入与 GameLoop 共享，阶段 4）。 */
+    this.floatingTexts = [];
+    /** 主循环引用（阶段 4：读取波次横幅等 HUD 状态）。 */
+    this.gameLoop = null;
     this.resize();
 
     // 画布尺寸随窗口变化自适应，并同步星空边界。
@@ -86,6 +92,15 @@ export class Renderer {
       for (const b of this.bullets) this.drawBullet(ctx, b);
     }
 
+    // 阶段 4：粒子与浮动得分文字在所有游玩相关状态绘制（结算也保留收尾爆炸视觉）。
+    if (this.particles) this.particles.draw(ctx);
+    for (const t of this.floatingTexts) t.draw(ctx);
+
+    // 阶段 4：波次横幅（存活期内居中显示“下一波”/波次号）。
+    if (this.gameLoop && gameState.phase === GamePhase.PLAYING && this.gameLoop.waveBannerTimer > 0 && this.gameLoop.waveBannerText) {
+      this.drawWaveBanner(this.gameLoop.waveBannerText, this.gameLoop.waveBannerTimer);
+    }
+
     // 状态机阶段界面。
     this.drawPhaseUI(gameState);
 
@@ -109,18 +124,23 @@ export class Renderer {
       ctx.fillStyle = '#8ab4ff';
       ctx.fillText('按 空格 或 点击屏幕 开始', cx, this.height * 0.52);
     } else if (gameState.phase === GamePhase.PLAYING) {
-      // HUD 雏形（阶段 2）：分数 + 生命 + 提示操控方式。
+      // HUD（阶段 2 雏形 + 阶段 4 最高分/波次横幅来源）。
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
       ctx.font = `${Math.max(16, Math.floor(this.width / 50))}px monospace`;
       ctx.fillStyle = '#ffd54a';
       ctx.fillText(`分数 ${gameState.score}`, 16, 14);
 
+      // 最高分（阶段 4）。
+      ctx.font = `${Math.max(12, Math.floor(this.width / 70))}px sans-serif`;
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillText(`最高 ${gameState.highScore}`, 16, 40);
+
       ctx.font = `${Math.max(14, Math.floor(this.width / 56))}px sans-serif`;
       ctx.fillStyle = '#7cff8a';
       let lives = '';
       for (let i = 0; i < gameState.lives; i++) lives += '♥ ';
-      ctx.fillText(`生命 ${lives || '-'}`, 16, 44);
+      ctx.fillText(`生命 ${lives || '-'}`, 16, 64);
 
       ctx.textAlign = 'right';
       ctx.font = `${Math.max(12, Math.floor(this.width / 70))}px sans-serif`;
@@ -156,6 +176,29 @@ export class Renderer {
     // 高光芯线：增强视觉区辨。
     ctx.fillStyle = '#fff7c4';
     ctx.fillRect(bullet.x - halfW / 2, bullet.y - halfH, halfW, bullet.height);
+    ctx.restore();
+  }
+
+  /**
+   * drawWaveBanner(text, timer) — 绘制居中的波次横幅（新一波提示，阶段 4）。
+   * @param {string} text 显示文本（如“波次 2”）
+   * @param {number} timer 剩余显示时长（s），用于淡出
+   */
+  drawWaveBanner(text, timer) {
+    const { ctx } = this;
+    const cx = this.width / 2;
+    const cy = this.height * 0.32;
+    const alpha = Math.max(0, Math.min(1, Math.min(timer, 1)));
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = `bold ${Math.max(40, Math.floor(this.width / 16))}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#7cff8a';
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 12;
+    ctx.fillText(text, cx, cy);
     ctx.restore();
   }
 }
