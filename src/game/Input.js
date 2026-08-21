@@ -1,8 +1,23 @@
 /**
  * Input — 键盘 / 鼠标 / 触屏输入归一化。
  * 阶段 1：键盘键位 + 单击事件（用于开始/重开）。
- * 阶段 2 起接入连续指针拖拽控制玩家。
+ * 阶段 2：接入连续指针拖拽操控玩家 + 方向键/WASD 移动。
+ *
+ * 移动意图接口：
+ *  - getMoveIntent() 返回键盘方向键 / WASD 的归一化意图 {x, y}；
+ *  - point(x, y) 记录当前指针画布坐标；pointerActive 标记是否正被按压。
+ *  指针拖拽采用「目标跟随」：由调用方把指针坐标交给 Player 目标跟随实现。
  */
+const MOVE_KEYS = {
+  ArrowLeft: { x: -1, y: 0 },
+  ArrowRight: { x: 1, y: 0 },
+  ArrowUp: { x: 0, y: -1 },
+  ArrowDown: { x: 0, y: 1 },
+  KeyA: { x: -1, y: 0 },
+  KeyD: { x: 1, y: 0 },
+  KeyW: { x: 0, y: -1 },
+  KeyS: { x: 0, y: 1 },
+};
 export class Input {
   /**
    * @param {HTMLCanvasElement} canvas
@@ -48,6 +63,24 @@ export class Input {
 
   isDown(code) {
     return this.keys.has(code);
+  }
+
+  /**
+   * getMoveIntent() — 由方向键 / WASD 计算归一化移动意图 {x, y}（-1~1）。
+   * @returns {{x:number, y:number}}
+   */
+  getMoveIntent() {
+    let x = 0;
+    let y = 0;
+    for (const code of this.keys) {
+      const v = MOVE_KEYS[code];
+      if (v) {
+        x += v.x;
+        y += v.y;
+      }
+    }
+    // 钳制到 [-1,1]（对角时由 Player 端归一化为单位向量）。
+    return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
   }
 
   /** 返回并清除一次待消费的点击信号。 */
