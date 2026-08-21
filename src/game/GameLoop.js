@@ -295,8 +295,14 @@ export class GameLoop {
     // 5) 剔除并计数波次场上消耗：被击毁/越界都视为离开本波。
     const killedRemoved = this.enemies.filter((e) => !e.active).length;
     const survivedCount = this.enemies.length - killedRemoved;
-    this.bullets = this.bullets.filter((b) => b.active && !b.isOutOfBounds(h));
-    this.enemies = this.enemies.filter((e) => e.active && !e.isOutOfBounds(h));
+    // 可见性修复（规划位 ywf-agent-2）：原地过滤而非重赋值，
+    // 避免 Renderer 持有的旧数组引用永远为空 → 敌机/子弹不可见。
+    const nextBullets = this.bullets.filter((b) => b.active && !b.isOutOfBounds(h));
+    this.bullets.length = 0;
+    this.bullets.push(...nextBullets);
+    const nextEnemies = this.enemies.filter((e) => e.active && !e.isOutOfBounds(h));
+    this.enemies.length = 0;
+    this.enemies.push(...nextEnemies);
     // 本帧被击毁 + 飞出边界的 都从波次场上计数扣除。
     const stepGone = killedRemoved + (survivedCount - this.enemies.length);
     for (let i = 0; i < stepGone; i++) wm.markGone();
