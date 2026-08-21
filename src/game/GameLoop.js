@@ -100,8 +100,46 @@ export class GameLoop {
   };
 
   /**
+   * resetForNewGame() — 新一局（开始/重开）统一重建实体与计分状态（阶段 5）。
+   * 单一 reset 入口：玩家复位、子弹/敌机清空、粒子/浮动文字清空、波次与冷却复位。
+   * 供开始（Ready→Playing）与结算重开（GameOver→Playing）两条路径复用，
+   * 避免跳过任一路径导致旧状态残留（如重开后敌人/子弹/命数未清）。
+   * 分数/命数/波次等基础计分由调用方 gs.start()（内部 reset()）清零；本方法只重建场上与节奏。
+   */
+  resetForNewGame() {
+    const w = this.renderer ? this.renderer.width : 800;
+    const h = this.renderer ? this.renderer.height : 600;
+    this.player.reset(w, h);
+    this.bullets.length = 0;
+    this.enemies.length = 0;
+    this.shootCooldown = 0;
+    this.spawnCooldown = this.spawnInterval; // 开局稍候再出敌，给玩家反应时间
+    this._lastPointerActive = false;
+    // 阶段 4：新局重置波次/粒子/浮动文字；波次管理器以当前 wave 复位。
+    this.waveManager.reset(this.gameState.wave || 1);
+    this.particles.clear();
+    this.floatingTexts.length = 0;
+    this.waveBannerTimer = 0;
+    this.waveBannerText = '';
+  }
+
+  /**
+   * clearField() — 离开游玩（结算/就绪）时清空场上实体与粒子，避免残留。
+   * 阶段 5：把散落各处的清理收拢为一个入口，保证非游玩状态无旧帧残留。
+   */
+  clearField() {
+    this.bullets.length = 0;
+    this.enemies.length = 0;
+    this.particles.clear();
+    this.floatingTexts.length = 0;
+    this.waveBannerTimer = 0;
+    this.waveBannerText = '';
+  }
+
+  /**
    * update(dt) — 每帧推进：输入触发状态迁移 → 状态机计时 → 星空滚动。
    * 阶段 1 范围：主循环 + 状态机 + 滚动星空；实体/碰撞在阶段 2/3 接入。
+   * 阶段 5：开始/重开统一走 resetForNewGame()，结算/就绪统一走 clearField()。
    * @param {number} dt 秒
    */
   update(dt) {
@@ -119,31 +157,13 @@ export class GameLoop {
     }
     // PLAYING → GAME_OVER 由后续阶段的生命/碰撞逻辑调用 gs.gameOver()。
 
-    // 进入 PLAYING（新一局）时复位玩家与实体集合（分数/命数也已在 gs.start() 重置）。
+    // 进入 PLAYING（新一局 / 结算重开）统一走单一 reset，重建实体与计分（阶段 5）。
     if (gs.phase === GamePhase.PLAYING && prevPhase !== GamePhase.PLAYING) {
-      const w = this.renderer ? this.renderer.width : 800;
-      const h = this.renderer ? this.renderer.height : 600;
-      this.player.reset(w, h);
-      this.bullets.length = 0;
-      this.enemies.length = 0;
-      this.shootCooldown = 0;
-      this.spawnCooldown = this.spawnInterval; // 开局稍候再出敌，给玩家反应时间
-      this._lastPointerActive = false;
-      // 阶段 4：新局重置波次/粒子/浮动文字，并以当前波次同步 Banner。
-      this.waveManager.reset(gs.wave || 1);
-      this.particles.clear();
-      this.floatingTexts.length = 0;
-      this.waveBannerTimer = 0;
-      this.waveBannerText = '';
+      this.resetForNewGame();
     }
-    // 结算/就绪阶段同样清空场上实体，避免重开时残留。
+    // 离开游玩（结算/就绪）统一清空场上实体与粒子，避免残留（阶段 5）。
     if (gs.phase !== GamePhase.PLAYING && prevPhase === GamePhase.PLAYING) {
-      this.bullets.length = 0;
-      this.enemies.length = 0;
-      // 阶段 4：结算同时清空粒子与浮动文字，避免残留。
-      this.particles.clear();
-      this.floatingTexts.length = 0;
-      this.waveBannerTimer = 0;
+      this.clearField();
     }
     this._prevPhase = gs.phase;
     gs.update(dt);
@@ -174,12 +194,8 @@ export class GameLoop {
     } else {
       // 非游玩阶段不响应移动输入（避免 READY/结算状态幽灵移动）。
       this._lastPointerActive = false;
-      // 结算/就绪阶段清空场上实体与粒子，避免命尽或重开后残留。
-      this.bullets.length = 0;
-      this.enemies.length = 0;
-      this.particles.clear();
-      this.floatingTexts.length = 0;
-      this.waveBannerTimer = 0;
+      // 结算/就绪阶段清空场上实体与粒子，避免命尽或重开后残留（阶段 5 统一 clearField）。
+      this.clearField();
     }
 
     // 星空滚动（READY/PLAYING 下保持动态感）。
