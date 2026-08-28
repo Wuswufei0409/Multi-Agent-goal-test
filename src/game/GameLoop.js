@@ -411,7 +411,11 @@ export class GameLoop {
    */
   _updateFloatingTexts(dt) {
     for (const t of this.floatingTexts) t.update(dt);
-    this.floatingTexts = this.floatingTexts.filter((t) => t.active);
+    // 可见性修复（同 enemies/bullets 同根）：原地过滤而非重赋值，
+    // 避免 Renderer 持有的 floatingTexts 引用失效 → 浮层文字永不渲染。
+    const nextFloatingTexts = this.floatingTexts.filter((t) => t.active);
+    this.floatingTexts.length = 0;
+    this.floatingTexts.push(...nextFloatingTexts);
   }
 
   /**
